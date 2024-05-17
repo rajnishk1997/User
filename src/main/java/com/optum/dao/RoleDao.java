@@ -12,5 +12,5 @@ public interface RoleDao extends JpaRepository<Role, Integer> {
 
 	//Role findByRoleName(String string);
 	 Optional<Role> findByRoleName(String roleName);
-
+	 //Role findByName(String roleName);
 }

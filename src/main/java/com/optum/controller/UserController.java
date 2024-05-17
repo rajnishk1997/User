@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 import org.springframework.transaction.annotation.Transactional;
@@ -118,10 +119,15 @@ public class UserController {
 
 	@PutMapping("/admin/update/{userName}")
 	public ResponseEntity<ResponseWrapper<User>> updateUser(@PathVariable String userName,
-			@RequestBody User updatedUser) {
+			@RequestBody UserRequestDTO userRequestDTO) {
 		try {
+			// Map UserRequestDTO to User entity
+			User updatedUser = modelMapper.map(userRequestDTO, User.class);
 			ReqRes reqRes;
-			Optional<User> optionalUser = userService.updateUserByUsername(userName, updatedUser);
+	        Set<String> newRoleNames = updatedUser.getRoles().stream()
+	                .map(Role::getRoleName)
+	                .collect(Collectors.toSet());
+			Optional<User> optionalUser = userService.updateUserByUsername(userName, updatedUser, newRoleNames);
 			User user = null;
 			if (optionalUser.isPresent()) {
 				user = optionalUser.get();

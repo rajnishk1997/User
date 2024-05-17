@@ -368,44 +368,92 @@ public class UserService {
 		return fullName.toString();
 	}
 
-	public Optional<User> updateUserByUsername(String userName, User updatedUser) {
-		Optional<User> optionalUser = userDao.findByUserName(userName);
-		if (optionalUser.isPresent()) {
-			User user = optionalUser.get();
-			// Update other user fields if needed
-			user.setUserFirstName(updatedUser.getUserFirstName());
-			user.setUserLastName(updatedUser.getUserLastName());
-			user.setUserMiddleName(updatedUser.getUserMiddleName());
-			user.setUserMobile(updatedUser.getUserMobile());
-			user.setUserEmail(updatedUser.getUserEmail());
-			user.setUserDesignation(updatedUser.getUserDesignation());
+	public Optional<User> updateUserByUsername(String userName, User updatedUser, Set<String> newRoleNames) {
+	    try {
+	        Optional<User> optionalUser = userDao.findByUserName(userName);
+	        if (optionalUser.isPresent()) {
+	            User user = optionalUser.get();
+	            // Update other user fields if needed
+	            user.setUserFirstName(updatedUser.getUserFirstName());
+	            user.setUserLastName(updatedUser.getUserLastName());
+	            user.setUserEmail(updatedUser.getUserEmail());
+	            user.setUserDesignation(updatedUser.getUserDesignation());
 
-			// Fetch the existing roles for the user
-			Set<Role> existingRoles = user.getRoles();
+	            int userId = user.getUserRid();
 
-			// Fetch the existing role from the database by name
-			Role updatedRole = updatedUser.getRoles().iterator().next(); // Assuming only one role is updated
+	            // Update roles
+	            updateUserRoles(user, newRoleNames);
 
-			// Check if the updated role already exists in the user's roles
-			boolean roleExists = existingRoles.stream()
-					.anyMatch(role -> role.getRoleName().equals(updatedRole.getRoleName()));
+	            // Save the updated user
+	            User savedUser = userDao.save(user);
+	            return Optional.of(savedUser);
+	        } else {
+	            return Optional.empty(); // User not found
+	        }
+	    } catch (Exception e) {
+	        // Log the exception or handle it appropriately
+	        e.printStackTrace();
+	        return Optional.empty(); // Return empty indicating failure
+	    }
+	}
 
-			if (roleExists) {
-				// Update the user's roles with the existing ones
-				user.setRoles(existingRoles);
-				userDao.save(user);
-				return Optional.of(user);
-			} else {
-				// Role does not exist in the user's roles, return empty Optional
-				return Optional.empty();
-			}
-		} else {
-			return Optional.empty(); // User not found
-		}
+	private void updateUserRoles(User user, Set<String> newRoleNames) {
+	    Set<Role> currentRoles = user.getRoles();
+	    Set<String> currentRoleNames = currentRoles.stream()
+	            .map(Role::getRoleName)
+	            .collect(Collectors.toSet());
+
+	    // Determine roles to be added
+	    Set<String> rolesToAdd = newRoleNames.stream()
+	            .filter(roleName -> !currentRoleNames.contains(roleName))
+	            .collect(Collectors.toSet());
+
+	    // Determine roles to be removed
+	    Set<String> rolesToRemove = currentRoleNames.stream()
+	            .filter(roleName -> !newRoleNames.contains(roleName))
+	            .collect(Collectors.toSet());
+
+	    // Add new roles to the user
+	    for (String roleName : rolesToAdd) {
+	        Optional<Role> roleOptional = roleDao.findByRoleName(roleName);
+	        roleOptional.ifPresent(role -> {
+	            // Assuming you have a method addRole in the User class to add a role
+	            user.addRole(role);
+	            // Append the role name to roleNames with comma separation
+	            if (user.getRoleNames() != null && !user.getRoleNames().isEmpty()) {
+	                user.setRoleNames(user.getRoleNames() + ", " + roleName);
+	            } else {
+	                user.setRoleNames(roleName);
+	            }
+
+	            // Create UserRole entity and save it
+	            UserRole userRole = new UserRole();
+	            userRole.setUser(user);
+	            userRole.setRole(role);
+	            userRole.setCreatedDate(new Date());
+	            userRole.setCreatedBy(user.getCurrentUserId());
+	            userRoleDao.save(userRole);
+	        });
+	    }
+
+	    // Remove old roles from the user
+	    for (String roleName : rolesToRemove) {
+	        currentRoles.removeIf(role -> role.getRoleName().equals(roleName));
+	        // Remove the role name from roleNames
+	        if (user.getRoleNames() != null && !user.getRoleNames().isEmpty()) {
+	            String updatedRoleNames = user.getRoleNames().replace(roleName, "").replaceFirst(",\\s*,", ",");
+	            user.setRoleNames(updatedRoleNames);
+	        }
+	        // Remove UserRole entity associated with the removed role
+	        UserRole userRoleToRemove = userRoleDao.findByUserAndRole(user, roleDao.findByRoleName(roleName).orElse(null));
+	        if (userRoleToRemove != null) {
+	            userRoleDao.delete(userRoleToRemove);
+	        }
+	    }
 	}
 
 	public Optional<User> updateUserByUserId(Integer userId, User updatedUser) {
-		Optional<User> optionalUser = userDao.findById(userId);
+		Optional<User> optionalUser = userDao.findByUserRid(userId);
 		if (optionalUser.isPresent()) {
 			User user = optionalUser.get();
 			// Update other user fields if needed
