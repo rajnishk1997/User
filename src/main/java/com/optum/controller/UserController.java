@@ -206,6 +206,16 @@ public class UserController {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
 		}
 	}
+	
+	 @GetMapping("get-user-details/{username}")
+	    public ResponseEntity<User> getUserByUsername(@PathVariable String username) {
+	        User user = userService.getUserByUsername(username);
+	        if (user != null) {
+	            return ResponseEntity.ok(user);
+	        } else {
+	            return ResponseEntity.notFound().build();
+	        }
+	    }
 
 	@GetMapping({ "/forAdmin" })
 	@PreAuthorize("hasRole('Admin')")

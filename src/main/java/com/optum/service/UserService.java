@@ -574,4 +574,8 @@ public class UserService {
 	    BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 	    return passwordEncoder.encode(rawPassword);
 	}
+
+	public User getUserByUsername(String username) {
+		return userDao.findByUserName(username).orElse(null);
+	}
 }
